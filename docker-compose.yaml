@@ -1,0 +1,181 @@
+services:
+  # REPLICA SET 1: USERS (rs_users)
+  # rs.initiate({_id: "rs_users", members: [{_id: 0, host: "mongo_users_1:27017"},{_id: 1, host: "mongo_users_2:27017"}, {_id: 2, host: "mongo_users_3:27017"}]})
+  # use admin
+  # db.createUser({user: "users", pwd: "1234U", roles: [{role: "root", db: "admin"}]})
+  mongo_users_1:
+    image: mongo:7.0.14
+    container_name: mongo_users_1
+    command: mongod --replSet rs_users --bind_ip_all --keyFile /etc/mongo-keyfile
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo_users_1:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile
+    networks:
+      - app-network
+
+  mongo_users_2:
+    image: mongo:7.0.14
+    container_name: mongo_users_2
+    command: mongod --replSet rs_users --bind_ip_all --keyFile /etc/mongo-keyfile
+    ports:
+      - "27018:27017"
+    volumes:
+      - ./mongo_users_2:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile
+    networks:
+      - app-network
+
+  mongo_users_3:
+    image: mongo:7.0.14
+    container_name: mongo_users_3
+    command: mongod --replSet rs_users --bind_ip_all --keyFile /etc/mongo-keyfile
+    ports:
+      - "27019:27017"
+    volumes:
+      - ./mongo_users_3:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile
+    networks:
+      - app-network
+
+  # REPLICA SET 2: CONTACTS (rs_boveda)
+  # rs.initiate({_id: "rs_boveda", members: [{_id: 0, host: "mongo_boveda_1:27017"},{_id: 1, host: "mongo_boveda_2:27017"}, {_id: 2, host: "mongo_boveda_3:27017"}]})
+  mongo_boveda_1:
+    image: mongo:7.0.14
+    container_name: mongo_boveda_1
+    command: mongod --replSet rs_boveda --bind_ip_all --keyFile /etc/mongo-keyfile
+    ports:
+      - "27020:27017"
+    volumes:
+      - ./mongo_boveda_1:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile
+    networks:
+      - app-network
+
+  mongo_boveda_2:
+    image: mongo:7.0.14
+    container_name: mongo_boveda_2
+    command: mongod --replSet rs_boveda --bind_ip_all --keyFile /etc/mongo-keyfile
+    ports:
+      - "27021:27017"
+    volumes:
+      - ./mongo_boveda_2:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile
+    networks:
+      - app-network
+
+  mongo_boveda_3:
+    image: mongo:7.0.14
+    container_name: mongo_boveda_3
+    command: mongod --replSet rs_boveda --bind_ip_all --keyFile /etc/mongo-keyfile
+    ports:
+      - "27022:27017"
+    volumes:
+      - ./mongo_boveda_3:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile
+    networks:
+      - app-network
+
+  # MICROSERVICIOS Y BALANCEADOR
+  ms1-1:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./ms-1:/app
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - mongo_users_1
+      - mongo_users_2
+      - mongo_users_3
+    networks:
+      - app-network
+    expose:
+      - "3000"
+
+  ms1-2:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./ms-1:/app
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - mongo_users_1
+      - mongo_users_2
+      - mongo_users_3
+    networks:
+      - app-network
+    expose:
+      - "3000"
+
+  ms2-1:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./ms-2:/app
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - mongo_boveda_1
+      - mongo_boveda_2
+      - mongo_boveda_3
+    networks:
+      - app-network
+    expose:
+      - "3000"
+
+  ms2-2:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./ms-2:/app
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - mongo_boveda_1
+      - mongo_boveda_2
+      - mongo_boveda_3
+    networks:
+      - app-network
+    expose:
+      - "3000"
+
+  ms3-1:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./ms-3:/app
+    command: sh -c "npm install && npm start"
+    networks:
+      - app-network
+    expose:
+      - "3000"
+  
+  ms3-2:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./ms-3:/app
+    command: sh -c "npm install && npm start"
+    networks:
+      - app-network
+    expose:
+      - "3000"  
+
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ms1-1
+      - ms1-2
+      - ms2-1
+      - ms2-2
+      - ms3-1
+      - ms3-2
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
