@@ -7,6 +7,13 @@
     "dev": "nodemon index.js",
     "start": "node index.js"
   },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "dotenv": "^16.4.5"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
