@@ -1,14 +1,12 @@
+const dotenv = require('dotenv');
+dotenv.config();
+
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
 const vaultRoutes = require('./routes/vault.routes');
-const dotenv = require('dotenv');
-
-dotenv.config();
 
 const app = express();
 
-app.use(cors());
 app.use(express.json());
 
 app.use('/api/vault', vaultRoutes);

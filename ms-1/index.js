@@ -16,6 +16,8 @@ connectDB();
 // Todas las rutas de authRoutes colgarán de la ruta '/api/users'
 app.use('/api/users', authRoutes);
 
+app.get("/", (req, res) => res.json({ status: "Running!!" }));
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`[Auth] Microservicio corriendo en el puerto ${PORT} (Contenedor: ${os.hostname()})`);

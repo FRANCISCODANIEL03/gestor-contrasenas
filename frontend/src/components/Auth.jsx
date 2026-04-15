@@ -14,52 +14,62 @@ export default function Auth({ onLogin, showToast }) {
   const [signUpPass, setSignUpPass] = useState('');
   const [showSignUpPass, setShowSignUpPass] = useState(false);
 
-  const handleSignIn = (e) => {
+  const handleSignIn = async (e) => {
     e.preventDefault();
     if (!signInUser || !signInPass) {
-      if (showToast) showToast('Por favor completa todos los campos.');
+      if (showToast) showToast("Por favor completa todos los campos.");
       return;
     }
 
-    const usersStr = localStorage.getItem('app_users');
-    const users = usersStr ? JSON.parse(usersStr) : [];
+    try {
+      const res = await fetch("http://localhost/api1/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: signInUser, password: signInPass }),
+      });
 
-    if (signInUser === 'admin' && signInPass === '1234') {
-      onLogin({ username: signInUser });
-      return;
-    }
+      const data = await res.json();
 
-    const exists = users.find(u => u.username === signInUser && u.password === signInPass);
-    if (exists) {
-      onLogin({ username: signInUser });
-    } else {
-      if (showToast) showToast('Usuario o contraseña incorrectos.');
+      if (res.ok) {
+        // onLogin ahora recibe el usuario y el JWT
+        onLogin({ username: signInUser }, data.token);
+      } else {
+        if (showToast) showToast(data.error || "Credenciales incorrectas");
+      }
+    } catch (error) {
+      if (showToast) showToast("Error al conectar con el servidor");
+      console.log(error);
     }
   };
 
-  const handleSignUp = (e) => {
+  const handleSignUp = async (e) => {
     e.preventDefault();
     if (!signUpUser || !signUpPass) {
-      if (showToast) showToast('Por favor completa todos los campos.');
+      if (showToast) showToast("Por favor completa todos los campos.");
       return;
     }
 
-    const usersStr = localStorage.getItem('app_users');
-    const users = usersStr ? JSON.parse(usersStr) : [];
+    try {
+      const res = await fetch("http://localhost/api1/api/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: signUpUser, password: signUpPass }),
+      });
 
-    const exists = users.find(u => u.username === signUpUser);
-    if (exists) {
-      if (showToast) showToast('El usuario ya existe.');
-      return;
+      const data = await res.json();
+
+      if (res.ok) {
+        if (showToast) showToast("¡Cuenta creada! Ahora inicia sesión.");
+        setSignUpUser("");
+        setSignUpPass("");
+        setIsRightPanelActive(false);
+      } else {
+        if (showToast) showToast(data.error || "No se pudo crear la cuenta");
+      }
+    } catch (error) {
+      if (showToast) showToast("Error al conectar con el servidor");
+      console.log(error);
     }
-
-    users.push({ username: signUpUser, password: signUpPass });
-    localStorage.setItem('app_users', JSON.stringify(users));
-    
-    if (showToast) showToast('¡Cuenta creada! Ahora inicia sesión.');
-    setSignUpUser('');
-    setSignUpPass('');
-    setIsRightPanelActive(false);
   };
 
   return (
