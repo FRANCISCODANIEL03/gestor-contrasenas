@@ -5,6 +5,9 @@ import Vault from "./Vault";
 
 export default function Dashboard({ currentUser, onLogout, showToast }) {
   const [passwords, setPasswords] = useState([]);
+  // NUEVO ESTADO: Controla qué ID se va a eliminar. Si es null, el modal está oculto.
+  const [itemToDelete, setItemToDelete] = useState(null);
+
   const API_URL = "http://localhost/api2/api/vault";
 
   // CARGAR BÓVEDA DESDE LA BASE DE DATOS
@@ -18,17 +21,15 @@ export default function Dashboard({ currentUser, onLogout, showToast }) {
 
         if (res.ok) {
           const data = await res.json();
-          // Mapeamos los datos del backend a la estructura que espera tu frontend
           const mappedData = data.map((item) => ({
             id: item._id,
             site: item.website_name,
-            
             email: item.email_or_username,
             pass: item.password,
           }));
           setPasswords(mappedData);
         } else if (res.status === 401 || res.status === 403) {
-          onLogout(); // Token inválido o expirado
+          onLogout();
         }
       } catch (error) {
         if (showToast) showToast("Error cargando la bóveda");
@@ -49,7 +50,6 @@ export default function Dashboard({ currentUser, onLogout, showToast }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        // Mapeamos a los nombres que espera el Backend
         body: JSON.stringify({
           website_name: newEntry.site,
           email_or_username: newEntry.email,
@@ -59,7 +59,6 @@ export default function Dashboard({ currentUser, onLogout, showToast }) {
 
       if (res.ok) {
         const data = await res.json();
-        // Agregamos el resultado al estado usando el _id de MongoDB
         setPasswords([
           ...passwords,
           {
@@ -76,24 +75,37 @@ export default function Dashboard({ currentUser, onLogout, showToast }) {
     }
   };
 
-  // ELIMINAR CONTRASEÑA
-  const handleDeletePassword = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar esta credencial?")) {
-      const token = localStorage.getItem("token");
-      try {
-        const res = await fetch(`${API_URL}/${id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  // PASO 1: Preparar la eliminación (abre el modal)
+  const handleDeletePassword = (id) => {
+    setItemToDelete(id);
+  };
 
-        if (res.ok) {
-          setPasswords(passwords.filter((p) => p.id !== id));
-          if (showToast) showToast("Credencial eliminada");
-        }
-      } catch (error) {
-        if (showToast) showToast("Error al eliminar");
+  // PASO 2: Ejecutar la eliminación tras confirmar en el modal
+  const executeDelete = async () => {
+    if (!itemToDelete) return;
+
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_URL}/${itemToDelete}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        setPasswords(passwords.filter((p) => p.id !== itemToDelete));
+        if (showToast) showToast("Credencial eliminada");
       }
+    } catch (error) {
+      if (showToast) showToast("Error al eliminar");
+    } finally {
+      // Siempre cerramos el modal al terminar, haya éxito o error
+      setItemToDelete(null);
     }
+  };
+
+  // Cancelar la eliminación (cierra el modal)
+  const cancelDelete = () => {
+    setItemToDelete(null);
   };
 
   // EDITAR CONTRASEÑA
@@ -135,35 +147,120 @@ export default function Dashboard({ currentUser, onLogout, showToast }) {
   };
 
   return (
-    <main
-      className="glass-panel active"
-      style={{
-        maxWidth: "800px",
-        display: "block",
-        position: "relative",
-        margin: "0 auto",
-      }}
-    >
-      <div className="header dashboard-header">
-        <div className="title-area">
-          <i className="fa-solid fa-shield-halved icon-medium"></i>
-          <h2>Bóveda de {currentUser.username}</h2>
+    <>
+      <main
+        className="glass-panel active"
+        style={{
+          maxWidth: "800px",
+          display: "block",
+          position: "relative",
+          margin: "0 auto",
+        }}
+      >
+        <div className="header dashboard-header">
+          <div className="title-area">
+            <i className="fa-solid fa-shield-halved icon-medium"></i>
+            <h2>Bóveda de {currentUser.username}</h2>
+          </div>
+          <button className="btn-icon" title="Cerrar sesión" onClick={onLogout}>
+            <i className="fa-solid fa-right-from-bracket"></i>
+          </button>
         </div>
-        <button className="btn-icon" title="Cerrar sesión" onClick={onLogout}>
-          <i className="fa-solid fa-right-from-bracket"></i>
-        </button>
-      </div>
 
-      <PasswordForm onAdd={handleAddPassword} />
+        <PasswordForm onAdd={handleAddPassword} />
 
-      <PasswordUtilities showToast={showToast} />
+        <PasswordUtilities showToast={showToast} />
 
-      <Vault
-        passwords={passwords}
-        onDelete={handleDeletePassword}
-        onEdit={handleEditPassword}
-        showToast={showToast}
-      />
-    </main>
+        <Vault
+          passwords={passwords}
+          onDelete={handleDeletePassword} // Ahora solo actualiza el estado, no borra de inmediato
+          onEdit={handleEditPassword}
+          showToast={showToast}
+        />
+      </main>
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {itemToDelete && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            className="glass-panel active"
+            style={{
+              padding: "30px",
+              borderRadius: "20px",
+              textAlign: "center",
+              backgroundColor: "var(--panel-bg)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              maxWidth: "400px",
+              width: "90%",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            <i
+              className="fa-solid fa-triangle-exclamation"
+              style={{
+                fontSize: "3.5rem",
+                color: "#ef4444",
+                marginBottom: "15px",
+              }}
+            ></i>
+            <h3
+              style={{
+                marginBottom: "10px",
+                color: "var(--text-main)",
+                fontSize: "1.5rem",
+              }}
+            >
+              ¿Eliminar credencial?
+            </h3>
+            <p
+              style={{
+                marginBottom: "25px",
+                color: "var(--text-muted)",
+                fontSize: "0.95rem",
+              }}
+            >
+              Esta acción no se puede deshacer. La contraseña se borrará
+              permanentemente de tu boveda.
+            </p>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "15px" }}
+            >
+              <button
+                className="btn-primary"
+                onClick={cancelDelete}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--text-muted)",
+                  color: "var(--text-main)",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-primary"
+                onClick={executeDelete}
+                style={{ background: "#ef4444", border: "1px solid #ef4444" }}
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
